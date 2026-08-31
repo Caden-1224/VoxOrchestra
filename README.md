@@ -172,14 +172,14 @@ flowchart TB
 ```bash
 cmake --preset wsl-debug
 cmake --build --preset wsl-debug -j8
-ctest --preset wsl-debug        # 27 个测试，全部通过
+ctest --preset wsl-debug        # 28 个测试，全部通过
 ```
 
 无硬件依赖可用 `scripts/check_no_hw_deps.sh` 逐二进制验收（ldd 检查 rkllm / sherpa / onnx / asound 等链接）。
 
 ## 演示（Mock 全链路）
 
-五节点单 Manager 轮转路由（Day 5 交付）：
+五节点单 Manager 轮转路由：
 
 ```bash
 scripts/demo_mock_chain.sh
@@ -187,7 +187,7 @@ scripts/demo_mock_chain.sh
 
 一键拉起五节点 + Manager + 网关，展示 work_id 轮转路由、逐节点推理输出、TTS 产出的 WAV 与 SIGTERM 优雅退出；日志与音频落在 `/tmp/voxorchestra-demo/`。
 
-Session 编排全链路（Day 6 交付：固定 WAV → Fake PCM）：
+Session 编排全链路（固定 WAV → Fake PCM）：
 
 ```bash
 scripts/demo_mock_session.sh
