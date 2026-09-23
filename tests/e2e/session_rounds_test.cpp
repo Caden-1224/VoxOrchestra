@@ -1,7 +1,12 @@
-// Session 50 轮 Mock E2E 回归（Day 7，M1 门禁 1/2/3）：
+// Session 50 轮 Mock E2E 回归（M1 门禁 1/2/3）：
 //
 // 真实进程拓扑（与 session_e2e_test 相同）：
-//   client --TCP(9111)--> edge_gateway --ZMQ--> unit_manager --ZMQ--> session_node(19210)
+//   client --TCP(9112)--> edge_gateway --ZMQ(19111)--> unit_manager
+//   --ZMQ(19211)--> session_node
+//
+// 端口刻意与其他测试错开（9112/19111/19211）：ZMQ REQ 客户端会向
+// 端点自动重连，若本测试与先序测试共用端口，先序测试的遗留进程可能
+// 把排队请求注入本测试链（TSan 回归中实测发现），唯一端口免疫该干扰。
 //
 // 在单条 TCP 连接上轮换四类路由 + 固定 WAV 共 50 轮，逐轮核对：
 //   1. reply.request_id 必须等于本轮 request_id（跨流检测，门禁 1）；
@@ -11,7 +16,7 @@
 // 统计：成功 / 超时 / 跨流 / 内容错配，M1 门禁 1 = 50 轮零跨流。
 //
 // 收尾（M1 门禁 2）：SIGTERM 三进程退出码 0；/proc 无进程残留；
-// 9111/19100/19210 端口全部释放（/proc/net/tcp 无 LISTEN）。
+// 9112/19111/19211 端口全部释放（/proc/net/tcp 无 LISTEN）。
 //
 // 日志关联（M1 门禁 3）：50 个 request_id 必须全部出现在
 // gateway / manager / session_node 三份日志中。
@@ -245,7 +250,8 @@ bool exchange(TestClient& c, const MessageEnvelope& req, MessageEnvelope& reply,
 
 enum class Kind { kL0, kL1, kL2, kL3, kWav };
 constexpr int kRounds = 50;
-constexpr std::uint16_t kGatewayPort = 9111;
+// 唯一端口（与其他测试错开，防 ZMQ 重连注入，见文件头注释）。
+constexpr std::uint16_t kGatewayPort = 9112;
 
 const char* KindName(Kind k) {
   switch (k) {
@@ -427,8 +433,8 @@ void test_50_rounds(const std::string& e2e_dir, const std::string& root,
                     const std::string& summary_path) {
   constexpr const char* kProcNames[] = {"session_node", "unit_manager",
                                         "edge_gateway"};
-  // 端口十六进制：9111=0x2397 / 19100=0x4A9C / 19210=0x4B0A。
-  const std::vector<std::string> kPorts = {"2397", "4a9c", "4b0a"};
+  // 端口十六进制：9112=0x2398 / 19111=0x4AA7 / 19211=0x4B0B。
+  const std::vector<std::string> kPorts = {"2398", "4aa7", "4b0b"};
 
   // 0. 前置清理：避免上次失败运行残留进程占用端口（SIGTERM → 2s → SIGKILL）。
   std::string pre_cleanup = "none";
@@ -458,7 +464,7 @@ void test_50_rounds(const std::string& e2e_dir, const std::string& root,
   ChildProc session_node, manager, gateway;
   CHECK(session_node.spawn(apps + "/session_node/session_node",
                            {"session_node",
-                            "--listen", "tcp://127.0.0.1:19210",
+                            "--listen", "tcp://127.0.0.1:19211",
                             "--config", root + "/config/mock/session.json",
                             "--output-dir", out_dir,
                             "--fixture-dir", root + "/data/fixtures",
@@ -466,12 +472,12 @@ void test_50_rounds(const std::string& e2e_dir, const std::string& root,
                            log_dir + "/session_node.log"));
   CHECK(manager.spawn(apps + "/unit_manager/unit_manager",
                       {"unit_manager",
-                       "--listen", "tcp://127.0.0.1:19100",
-                       "--node", "tcp://127.0.0.1:19210"},
+                       "--listen", "tcp://127.0.0.1:19111",
+                       "--node", "tcp://127.0.0.1:19211"},
                       log_dir + "/manager.log"));
   CHECK(gateway.spawn(apps + "/edge_gateway/edge_gateway",
-                      {"edge_gateway", "--port", "9111",
-                       "--manager-url", "tcp://127.0.0.1:19100"},
+                      {"edge_gateway", "--port", "9112",
+                       "--manager-url", "tcp://127.0.0.1:19111"},
                       log_dir + "/gateway.log"));
   std::this_thread::sleep_for(500ms);
   if (!session_node.alive() || !manager.alive() || !gateway.alive()) {
