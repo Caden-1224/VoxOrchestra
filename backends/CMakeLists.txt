@@ -21,5 +21,6 @@ if(VOXORCHESTRA_ENABLE_HARDWARE_BACKENDS)
   # 硬件后端按天接入：sherpa_onnx（Day 9）/ rkllm（Day 10）/
   # summer_tts（Day 11，已接入）/ alsa（Day 11）。
   add_subdirectory(sherpa_onnx)
+  add_subdirectory(rkllm)
   add_subdirectory(summer_tts)
 endif()
